@@ -1,50 +1,82 @@
-﻿using NAudio.Wave;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Documents;
+using System.Runtime.InteropServices.ComTypes;
+using System.Windows.Input;
+using Un4seen.Bass;
+using Un4seen.Bass.AddOn.Mix;
+using Un4seen.Bass.AddOn.Tags;
+using Un4seen.Bass.Misc;
 
 namespace MP3_Player_App
 {
     public class AudioPlayer
     {
-        private WaveOutEvent outputDevice;
-        private AudioFileReader audioFileReader;
-        string[] audioFileExtensions = { ".mp3", ".wav", ".flac" };
-        private string songTitle;
-        private string artist;
-
+        private int streamHandle;
+        private string[] audioFileExtensions = { ".mp3", ".wav", ".flac" };
+        private TAG_INFO tagInfo;
         private bool isPlaying = false;
         private float volume = 0.75f;
-
         private List<string> filePaths;
+        private int currentIndex = -1;
 
         public event EventHandler<bool> PlaybackStateChanged;
-        public List<string> Playlist { 
+        public List<string> Playlist
+        {
             get { return filePaths; }
             private set { filePaths = value; }
         }
-        public TimeSpan CurrentTime { 
+        public int stream
+        {
+            get { return streamHandle; }
+        }
+        private TimeSpan pauseTime; 
+        public TimeSpan CurrentTime
+        {
             get
             {
-                if (audioFileReader != null && outputDevice != null && outputDevice.PlaybackState == PlaybackState.Playing)
+                if (!IsPlaying)
                 {
-                    return audioFileReader.CurrentTime;
+                    return pauseTime;
                 }
-                else { return TimeSpan.Zero; }
+                if (streamHandle != 0 && Bass.BASS_ChannelIsActive(streamHandle) == BASSActive.BASS_ACTIVE_PLAYING)
+                {
+                    long position = Bass.BASS_ChannelGetPosition(streamHandle);
+                    double seconds = Bass.BASS_ChannelBytes2Seconds(streamHandle, position);
+                    return TimeSpan.FromSeconds(seconds);
+                }
+                return TimeSpan.Zero;
             }
             set
             {
-                if (audioFileReader != null)
+                if (streamHandle != 0)
                 {
-                    audioFileReader.CurrentTime = value;
+                    long bytes = Bass.BASS_ChannelSeconds2Bytes(streamHandle, value.TotalSeconds);
+                    Bass.BASS_ChannelSetPosition(streamHandle, bytes);
                 }
             }
         }
-        public bool IsPlaying { 
-            get {
+
+        public TimeSpan TotalTime
+        {
+            get
+            {
+                if (IsSelected)
+                {
+                    long length = Bass.BASS_ChannelGetLength(streamHandle);
+                    double seconds = Bass.BASS_ChannelBytes2Seconds(streamHandle, length);
+                    return TimeSpan.FromSeconds(seconds);
+                }
+                return TimeSpan.Zero;
+            }
+        }
+
+        public bool IsPlaying
+        {
+            get
+            {
                 return isPlaying;
             }
             set
@@ -52,13 +84,20 @@ namespace MP3_Player_App
                 isPlaying = value;
             }
         }
+
+        public int SongIndex
+        {
+            get { return currentIndex; }
+        }
+
         public bool IsSelected
         {
             get
             {
-                return !String.IsNullOrEmpty(selectedFilePath);
+                return currentIndex >= 0 && currentIndex < Playlist.Count;
             }
         }
+
         public float Volume
         {
             get { return volume; }
@@ -67,81 +106,71 @@ namespace MP3_Player_App
                 if (volume != value)
                 {
                     volume = value;
-                    if (audioFileReader != null)
+                    if (streamHandle != 0)
                     {
-                        audioFileReader.Volume = volume;
+                        Bass.BASS_ChannelSetAttribute(streamHandle, BASSAttribute.BASS_ATTRIB_VOL, volume);
                     }
                 }
             }
-        }
-        public string selectedFilePath { get; set; }
-        public string SongTitle
-        {
-            get {
-                if (IsSelected)
-                {
-                    using (var mp3File = new Mp3FileReader(selectedFilePath))
-                    {
-                        if (mp3File != null && mp3File.Id3v2Tag != null)
-                        {
-                            // Пытаемся получить название песни из метаданных
-                            if (!string.IsNullOrEmpty(mp3File.Id3v2Tag.ToString()))
-                            {
-                                return mp3File.Id3v2Tag.ToString();
-                            }
-                        }
-                        return Path.GetFileNameWithoutExtension(selectedFilePath);
-                    }
-                }
-                return "";
-            }
-            
-        }
-        public string Artist
-        {
-            get { return artist; }
-            
-        }
-        public AudioPlayer()
-        {
-            outputDevice = new WaveOutEvent();
-            Playlist = new List<string>();
-            AddFolderToPlaylist(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Music"));
-            if(Playlist.Count > 0) {
-                //selectedFilePath = Playlist[0];
-            }
-            OpenSelectedFile();
         }
 
-        public double getTrackTotalTime()
+        public string selectedFilePath { get; set; }
+
+        public TAG_INFO TagInfo
         {
-            if (IsSelected) { 
-                return audioFileReader.TotalTime.TotalSeconds;
-            }
-            return TimeSpan.Zero.TotalSeconds;
-        }
-        public int? getTrackBitrate()
-        {
-            using (var reader = new Mp3FileReader(selectedFilePath))
+            get
             {
-                if (reader != null)
+                if (IsSelected)
                 {
-                    return reader.Mp3WaveFormat.AverageBytesPerSecond * 8 / 1000 + 1;
+                    return tagInfo;
                 }
+                return null;
             }
-            return null;
         }
+
+
+        public AudioPlayer()
+        {
+            BassNet.Registration("aleksvasilyev22@gmail.com", "2X351225152222");
+            if (!Bass.BASS_Init(-1, 44100, BASSInit.BASS_DEVICE_DEFAULT, IntPtr.Zero))
+            {
+                throw new ApplicationException("BASS initialization failed");
+            }
+
+            Playlist = new List<string>();
+            string baseFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Music");
+            if (!Directory.Exists(baseFolder))
+            {
+                Directory.CreateDirectory(baseFolder);
+            }
+            tagInfo = new TAG_INFO();
+            AddFolderToPlaylist(baseFolder);
+            if (Playlist.Count > 0)
+            {
+                currentIndex = 0;
+                selectedFilePath = Playlist[currentIndex];
+            }
+        }
+
         public void OpenSelectedFile()
         {
-            if(selectedFilePath != null) { 
-                audioFileReader = new AudioFileReader(selectedFilePath);
-                audioFileReader.Volume = Volume;
-                outputDevice.Init(audioFileReader);
+            if (IsSelected)
+            {
+                CloseStream();
+
+                streamHandle = Bass.BASS_StreamCreateFile(selectedFilePath, 0, 0, BASSFlag.BASS_DEFAULT);
+                if (streamHandle != 0)
+                {
+                    Bass.BASS_ChannelSetAttribute(streamHandle, BASSAttribute.BASS_ATTRIB_VOL, volume);
+                    tagInfo = BassTags.BASS_TAG_GetFromFile(selectedFilePath);
+                }
             }
         }
+
         public void AddFolderToPlaylist(string folderPath)
         {
-            foreach (string filePath in Directory.GetFiles(folderPath)) {
+            foreach (string filePath in Directory.GetFiles(folderPath))
+            {
                 if (audioFileExtensions.Contains(Path.GetExtension(filePath), StringComparer.OrdinalIgnoreCase))
                 {
                     Playlist.Add(filePath);
@@ -151,48 +180,70 @@ namespace MP3_Player_App
 
         public void Play()
         {
-            if (outputDevice != null && audioFileReader != null)
+            if (IsSelected)
             {
-                outputDevice.Play();
-                isPlaying = true;
-                PlaybackStateChanged?.Invoke(this, true);
+                if (streamHandle != 0)
+                {
+                    Bass.BASS_ChannelPlay(streamHandle, false);
+                    isPlaying = true;
+                }
             }
         }
 
         public void Pause()
         {
-            if (outputDevice != null)
+            if (IsSelected)
             {
-                outputDevice.Pause();
-                isPlaying = false;
-                PlaybackStateChanged?.Invoke(this, false);
+                if (streamHandle != 0)
+                {
+                    long position = Bass.BASS_ChannelGetPosition(streamHandle);
+                    double seconds = Bass.BASS_ChannelBytes2Seconds(streamHandle, position);
+                    pauseTime = TimeSpan.FromSeconds(seconds);
+                    Bass.BASS_ChannelPause(streamHandle);
+                    isPlaying = false;
+                }
             }
         }
 
         public void Stop()
         {
-            if (outputDevice != null && isPlaying)
+            if (IsSelected)
             {
-                outputDevice.Stop();
+                CloseStream();
+                OpenSelectedFile();
                 isPlaying = false;
-                PlaybackStateChanged?.Invoke(this, false);
+                pauseTime = TimeSpan.Zero;
             }
         }
 
-
-        public async Task PlayAsync()
+        public void Next()
         {
-            await Task.Run(() => Play());
+            if (currentIndex < Playlist.Count - 1)
+            {
+                currentIndex++;
+                selectedFilePath = Playlist[currentIndex];
+                OpenSelectedFile();
+            }
         }
 
-        public async Task PauseAsync()
+        public void Previous()
         {
-            await Task.Run(() => Pause());
+            if (currentIndex > 0)
+            {
+                currentIndex--;
+                selectedFilePath = Playlist[currentIndex];
+                OpenSelectedFile();
+            }
         }
 
-        public async Task StopAsync()
+        private void CloseStream()
         {
-            await Task.Run(() => Stop());
+            if (streamHandle != 0)
+            {
+                Bass.BASS_ChannelStop(streamHandle);
+                Bass.BASS_StreamFree(streamHandle);
+                streamHandle = 0;
+            }
         }
     }
 }

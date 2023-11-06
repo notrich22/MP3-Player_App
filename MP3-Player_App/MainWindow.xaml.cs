@@ -1,32 +1,25 @@
 ﻿using System;
 using System.Windows;
-using NAudio.Wave;
 using System.Windows.Threading;
 using System.Threading.Tasks;
-using System.Threading;
-using System.ComponentModel;
 using System.Windows.Controls;
-using System.Drawing;
-using NAudio.Wave;
-using System;
-using System.Drawing;
-using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using NAudio.Dsp;
-using System.Windows.Data;
-using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
-using System.Timers;
 using System.Diagnostics;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using Un4seen.Bass.Misc;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Windows.Media.Imaging;
 
 namespace MP3_Player_App
 {
     public partial class MainWindow : Window
     {
         AudioPlayer audioPlayer;
+        Visuals visuals = new Visuals();
+        private BitmapImage bitmapImage;
         public float Volume
         {
             get { return audioPlayer.Volume; }
@@ -34,11 +27,28 @@ namespace MP3_Player_App
         }
         public string SongTitle
         {
-            get { return audioPlayer.SongTitle; }
+            get {
+                if (audioPlayer.TagInfo.title != null)
+                    return audioPlayer.TagInfo.title;
+                else
+                    return "";
+            }
+        }
+        public BitmapImage BitmapVisualImage
+        {
+            get
+            {
+                return bitmapImage;
+            }
         }
         public string Artist
         {
-            get { return audioPlayer.Artist; }
+            get {
+                if (audioPlayer.TagInfo.artist != null)
+                    return audioPlayer.TagInfo.artist;
+                else
+                    return "";
+            }
         }
         public bool IsSelected
         {
@@ -47,11 +57,12 @@ namespace MP3_Player_App
                 return audioPlayer.IsSelected;
             }
         }
+        private bool isUpdatingPosition = false;
         private DispatcherTimer timer;
 
         public MainWindow()
         {
-            
+            bitmapImage = new BitmapImage();
             audioPlayer = new AudioPlayer();
             InitializeComponent();
             DataContext = this;
@@ -64,24 +75,50 @@ namespace MP3_Player_App
             {
                 await UpdateGUIAsync(sender, e);
             };
-
             timer.Start();
         }
         private async Task UpdateGUIAsync(object sender, EventArgs e)
         {
             if (IsSelected)
             {
+                SongTitleText.Text = SongTitle;
+                CurrentTimeText.Text = string.Format("{0:D2}:{1:D2}", (int)audioPlayer.CurrentTime.TotalMinutes, audioPlayer.CurrentTime.Seconds);
+                TotalTimeText.Text = string.Format("{0:D2}:{1:D2}", (int)audioPlayer.TotalTime.TotalMinutes, audioPlayer.TotalTime.Seconds);
                 ControlPanel.IsEnabled = true;
             }
             else
             {
                 ControlPanel.IsEnabled = false;
             }
-        }
+            if(audioPlayer.IsPlaying)
+            {
+                Bitmap imgVis = visuals.CreateSpectrumLine(audioPlayer.stream, 600, 300, 
+                    System.Drawing.Color.Yellow, System.Drawing.Color.Red,
+                        System.Drawing.Color.Empty, 1, 1, false, false, false);
+                if(imgVis != null)
+                    AudioVisualizer.Source = ConvertBitmapToBitmapImage(imgVis);
+            }
+            else
+            {
+                AudioVisualizer.Source = null;
+            }
 
-        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        }
+        public BitmapImage ConvertBitmapToBitmapImage(Bitmap bitmap)
         {
-            TrackSlider.Minimum = 0;
+            using (MemoryStream memoryStream = new MemoryStream())
+            {
+                bitmap.Save(memoryStream, ImageFormat.Bmp); // Сохраняем битмап в поток с форматом BMP
+                memoryStream.Position = 0; // Сбрасываем позицию потока в начало
+
+                BitmapImage bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.StreamSource = memoryStream;
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.EndInit();
+
+                return bitmapImage;
+            }
         }
         private void UpdateListBox()
         {
@@ -90,14 +127,13 @@ namespace MP3_Player_App
             {
                 TrackListBox.Items.Add(Path.GetFileName(item));
             }
-
         }
 
         private string UpdateTrackBitrate(string filePath)
         {
-            if (audioPlayer.getTrackBitrate() != null)
+            if (String.IsNullOrEmpty(audioPlayer.TagInfo.bitrate.ToString()))
             {
-                return "Битрейт трека: " + audioPlayer.getTrackBitrate() + " kbps";
+                return "Битрейт трека: " + audioPlayer.TagInfo.bitrate + " kbps";
             }
             return "Не удалось получить битрейт";
         }
@@ -106,17 +142,19 @@ namespace MP3_Player_App
         {
             await Task.Run(() =>
             {
-                while (true)
-                {
-                    Dispatcher.Invoke(() =>
+                try { 
+                    while (true)
                     {
-                        if (IsSelected)
+                        Dispatcher.Invoke(() =>
                         {
-                            TrackSlider.Value = audioPlayer.CurrentTime.TotalSeconds;
-                            TrackSlider.Maximum = audioPlayer.getTrackTotalTime();
-                        }
-                    });
-                }
+                            if (IsSelected)
+                            {
+                                TrackSlider.Value = audioPlayer.CurrentTime.TotalSeconds;
+                                TrackSlider.Maximum = audioPlayer.TotalTime.TotalSeconds;
+                            }
+                        });
+                    }
+                }catch (Exception ex) { Debug.WriteLine(ex.ToString()); }
             });
         }
 
@@ -124,24 +162,30 @@ namespace MP3_Player_App
         {
             if (audioPlayer.IsPlaying)
             {
-                await audioPlayer.PauseAsync();
+                audioPlayer.Pause();
                 audioPlayer.IsPlaying = false;
             }
             else
             {
-                
-                BitrateTextBlock.Visibility = Visibility.Visible;
-                BitrateTextBlock.Text = UpdateTrackBitrate(audioPlayer.selectedFilePath);
-                await audioPlayer.PlayAsync();
+                audioPlayer.Play();
                 audioPlayer.IsPlaying = true;
             }
         }
 
+        private void TrackSlider_DragStarted(object sender, MouseButtonEventArgs e)
+        {
+            isUpdatingPosition = true;
+        }
 
+        private void TrackSlider_DragCompleted(object sender, MouseButtonEventArgs e)
+        {
+            isUpdatingPosition = false;
+        }
         private void TrackSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             double newPosition = TrackSlider.Value;
-            audioPlayer.CurrentTime = TimeSpan.FromSeconds(newPosition);
+            if (isUpdatingPosition)
+                audioPlayer.CurrentTime = TimeSpan.FromSeconds(newPosition);
         }
 
         private void SelectDirectoryButton_Click(object sender, RoutedEventArgs e)
@@ -167,10 +211,15 @@ namespace MP3_Player_App
         }
         private void PreviousButton_Click(object sender, RoutedEventArgs e)
         {
-
+            audioPlayer.Previous();
+            BitrateTextBlock.Text = UpdateTrackBitrate(audioPlayer.selectedFilePath);
+            TrackListBox.SelectedIndex = audioPlayer.SongIndex;
         }
         private void NextButton_Click(object sender, RoutedEventArgs e)
         {
+            audioPlayer.Next();
+            BitrateTextBlock.Text = UpdateTrackBitrate(audioPlayer.selectedFilePath);
+            TrackListBox.SelectedIndex = audioPlayer.SongIndex;
 
         }
 
@@ -181,7 +230,7 @@ namespace MP3_Player_App
         private async void TrackListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             TrackSlider.IsEnabled = true;
-            await audioPlayer.StopAsync();
+            audioPlayer.Stop();
             if (TrackListBox.SelectedItem != null)
             {
                 foreach (var filePath in audioPlayer.Playlist)
@@ -192,6 +241,8 @@ namespace MP3_Player_App
                     }
                 }
             }
+            BitrateTextBlock.Visibility = Visibility.Visible;
+            BitrateTextBlock.Text = UpdateTrackBitrate(audioPlayer.selectedFilePath);
         }
 
     }

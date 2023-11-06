@@ -4,6 +4,6 @@
              xmlns:local="clr-namespace:MP3_Player_App"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <SolidColorBrush x:Key="TextColorBrush" Color="White" />
     </Application.Resources>
 </Application>
