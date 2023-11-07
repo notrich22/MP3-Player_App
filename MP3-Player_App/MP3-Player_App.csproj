@@ -64,6 +64,9 @@
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>appIco.ico</ApplicationIcon>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Bass.Net, Version=2.4.17.5, Culture=neutral, PublicKeyToken=b7566c273e6ef480, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -149,9 +152,11 @@
     <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <ItemGroup>
+    <Resource Include="appIco.ico" />
     <Content Include="bass.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <None Include="Resources\Icon1.ico" />
     <Resource Include="Icos\stop.png" />
     <Resource Include="Icos\appIco.png" />
     <Resource Include="Icos\folder.png" />
