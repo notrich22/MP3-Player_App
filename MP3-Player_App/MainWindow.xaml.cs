@@ -12,6 +12,8 @@ using Un4seen.Bass.Misc;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Media.Imaging;
+using System.Windows.Media;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace MP3_Player_App
 {
@@ -79,6 +81,7 @@ namespace MP3_Player_App
         }
         private async Task UpdateGUIAsync(object sender, EventArgs e)
         {
+            changePlayBtnState();
             if (IsSelected)
             {
                 SongTitleText.Text = SongTitle;
@@ -90,18 +93,38 @@ namespace MP3_Player_App
             {
                 ControlPanel.IsEnabled = false;
             }
-            if(audioPlayer.IsPlaying)
-            {
-                Bitmap imgVis = visuals.CreateSpectrumLine(audioPlayer.stream, 600, 300, 
-                    System.Drawing.Color.Yellow, System.Drawing.Color.Red,
-                        System.Drawing.Color.Empty, 1, 1, false, false, false);
-                if(imgVis != null)
+            if (audioPlayer.IsPlaying) { 
+                Bitmap imgVis = null;
+                if ((bool)LineRadioBtn.IsChecked)
+                {
+                    imgVis = visuals.CreateSpectrumLine(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, 1, 1, false, false, true);
+                }
+                if ((bool)BeanRadioBtn.IsChecked)
+                {
+                    imgVis = visuals.CreateSpectrumBean(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, 1, false, false, true);
+                }
+                if ((bool)WaveRadioBtn.IsChecked)
+                {
+                    imgVis = visuals.CreateSpectrumWave(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, 1, false, false, true);
+                }
+                if ((bool)WaveFormRadioBtn.IsChecked)
+                {
+                    imgVis = visuals.CreateWaveForm(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, System.Drawing.Color.Empty, 2, false, false, true);
+
+                }
+                if ((bool)LinePeakRadioBtn.IsChecked)
+                {
+                    imgVis = visuals.CreateSpectrumLinePeak(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.DarkRed, System.Drawing.Color.Empty, 1, 1, 2, 0, true, false, true);
+
+                }
+                if (imgVis != null)
                     AudioVisualizer.Source = ConvertBitmapToBitmapImage(imgVis);
             }
             else
             {
                 AudioVisualizer.Source = null;
             }
+
 
         }
         public BitmapImage ConvertBitmapToBitmapImage(Bitmap bitmap)
@@ -131,9 +154,10 @@ namespace MP3_Player_App
 
         private string UpdateTrackBitrate(string filePath)
         {
-            if (String.IsNullOrEmpty(audioPlayer.TagInfo.bitrate.ToString()))
+            string bitrate = audioPlayer.TagInfo.bitrate.ToString();
+            if (!String.IsNullOrEmpty(bitrate))
             {
-                return "Битрейт трека: " + audioPlayer.TagInfo.bitrate + " kbps";
+                return  audioPlayer.TagInfo.bitrate + " kbps";
             }
             return "Не удалось получить битрейт";
         }
@@ -183,9 +207,19 @@ namespace MP3_Player_App
         }
         private void TrackSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            double newPosition = TrackSlider.Value;
-            if (isUpdatingPosition)
-                audioPlayer.CurrentTime = TimeSpan.FromSeconds(newPosition);
+            if (!audioPlayer.IsPlaying)
+            {
+                double newPosition = TrackSlider.Value;
+                if (isUpdatingPosition)
+                    audioPlayer.CurrentTime = TimeSpan.FromSeconds(newPosition);
+            }
+            else
+            {
+                double newPosition = TrackSlider.Value;
+                if (isUpdatingPosition)
+                    audioPlayer.CurrentTime = TimeSpan.FromSeconds(newPosition);
+            }
+            
         }
 
         private void SelectDirectoryButton_Click(object sender, RoutedEventArgs e)
@@ -244,6 +278,18 @@ namespace MP3_Player_App
             BitrateTextBlock.Visibility = Visibility.Visible;
             BitrateTextBlock.Text = UpdateTrackBitrate(audioPlayer.selectedFilePath);
         }
+        private void changePlayBtnState()
+        {
+            string state = audioPlayer.IsPlaying ? "pause.png" : "play.png";
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory + "/Icos/", state);
 
+            BitmapImage bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(path);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.EndInit();
+
+            ppBtnImage.Source = bitmap;
+        }
     }
 }

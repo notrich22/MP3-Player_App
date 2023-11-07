@@ -152,6 +152,13 @@
     <Content Include="bass.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Resource Include="Icos\stop.png" />
+    <Resource Include="Icos\appIco.png" />
+    <Resource Include="Icos\folder.png" />
+    <Resource Include="Icos\next.png" />
+    <Resource Include="Icos\pause.png" />
+    <Resource Include="Icos\play.png" />
+    <Resource Include="Icos\prev.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

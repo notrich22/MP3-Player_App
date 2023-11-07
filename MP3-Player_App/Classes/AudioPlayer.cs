@@ -16,6 +16,7 @@ namespace MP3_Player_App
     {
         private int streamHandle;
         private string[] audioFileExtensions = { ".mp3", ".wav", ".flac" };
+        private string currentDir;
         private TAG_INFO tagInfo;
         private bool isPlaying = false;
         private float volume = 0.75f;
@@ -32,7 +33,7 @@ namespace MP3_Player_App
         {
             get { return streamHandle; }
         }
-        private TimeSpan pauseTime; 
+        private TimeSpan pauseTime;
         public TimeSpan CurrentTime
         {
             get
