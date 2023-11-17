@@ -1,8 +1,8 @@
 ﻿<Window x:Class="MP3_Player_App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MP3 Player" Width="550" Height="700" ResizeMode="NoResize" Background="Black"
-        BorderBrush="black" BorderThickness="10">
+        Title="MP3 Player" Width="550" Height="700" ResizeMode="NoResize" Background="Black">
+
     <Window.Resources>
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="{StaticResource TextColorBrush}" />

@@ -174,7 +174,10 @@ namespace MP3_Player_App
             {
                 if (audioFileExtensions.Contains(Path.GetExtension(filePath), StringComparer.OrdinalIgnoreCase))
                 {
-                    Playlist.Add(filePath);
+                    if (!Playlist.Contains(filePath, StringComparer.OrdinalIgnoreCase))
+                    {
+                        Playlist.Add(filePath);
+                    }
                 }
             }
         }

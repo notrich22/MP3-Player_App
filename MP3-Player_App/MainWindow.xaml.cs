@@ -14,13 +14,14 @@ using System.Drawing.Imaging;
 using System.Windows.Media.Imaging;
 using System.Windows.Media;
 using static System.Net.Mime.MediaTypeNames;
+using Un4seen.Bass;
 
 namespace MP3_Player_App
 {
     public partial class MainWindow : Window
     {
         AudioPlayer audioPlayer;
-        Visuals visuals = new Visuals();
+        Visuals visuals;
         private BitmapImage bitmapImage;
         public float Volume
         {
@@ -66,6 +67,7 @@ namespace MP3_Player_App
         {
             bitmapImage = new BitmapImage();
             audioPlayer = new AudioPlayer();
+            visuals = new Visuals();
             InitializeComponent();
             DataContext = this;
             UpdateListBox();
@@ -97,24 +99,24 @@ namespace MP3_Player_App
                 Bitmap imgVis = null;
                 if ((bool)LineRadioBtn.IsChecked)
                 {
-                    imgVis = visuals.CreateSpectrumLine(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, 1, 1, false, false, true);
+                    imgVis = visuals.CreateSpectrumLine(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Transparent, 1, 1, false, false, true);
                 }
                 if ((bool)BeanRadioBtn.IsChecked)
                 {
-                    imgVis = visuals.CreateSpectrumBean(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, 1, false, false, true);
+                    imgVis = visuals.CreateSpectrumBean(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Transparent, 1, false, false, true);
                 }
                 if ((bool)WaveRadioBtn.IsChecked)
                 {
-                    imgVis = visuals.CreateSpectrumWave(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, 1, false, false, true);
+                    imgVis = visuals.CreateSpectrumWave(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Transparent, 1, false, false, true);
                 }
                 if ((bool)WaveFormRadioBtn.IsChecked)
                 {
-                    imgVis = visuals.CreateWaveForm(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, System.Drawing.Color.Empty, 2, false, false, true);
+                    imgVis = visuals.CreateWaveForm(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.Empty, System.Drawing.Color.Transparent, 2, false, false, true);
 
                 }
                 if ((bool)LinePeakRadioBtn.IsChecked)
                 {
-                    imgVis = visuals.CreateSpectrumLinePeak(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.DarkRed, System.Drawing.Color.Empty, 1, 1, 2, 0, true, false, true);
+                    imgVis = visuals.CreateSpectrumLinePeak(audioPlayer.stream, 600, 300, System.Drawing.Color.Yellow, System.Drawing.Color.Red, System.Drawing.Color.DarkRed, System.Drawing.Color.Transparent, 1, 1, 2, 0, true, false, true);
 
                 }
                 if (imgVis != null)
